@@ -8,6 +8,7 @@ import io
 import logging
 import unittest
 import os
+import shutil
 import subprocess
 import struct
 import sys
@@ -29,10 +30,10 @@ from gensim.models.fasttext_inner import compute_ngrams, compute_ngrams_bytes, f
 import gensim.models.fasttext
 
 try:
-    from pyemd import emd  # noqa:F401
-    PYEMD_EXT = True
+    from ot import emd2  # noqa:F401
+    POT_EXT = True
 except (ImportError, ValueError):
-    PYEMD_EXT = False
+    POT_EXT = False
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ MAX_WORDVEC_COMPONENT_DIFFERENCE = 1.0e-10
 BUCKET = 10000
 
 FT_HOME = os.environ.get("FT_HOME")
-FT_CMD = os.path.join(FT_HOME, "fasttext") if FT_HOME else None
+FT_CMD = shutil.which("fasttext", path=FT_HOME) or shutil.which("fasttext")
 
 
 new_sentences = [
@@ -372,6 +373,9 @@ class TestFastTextModel(unittest.TestCase):
         self.assertEqual(
             self.test_model.wv.most_similar_cosmul('nights'),
             self.test_model.wv.most_similar_cosmul(positive=['nights']))
+        self.assertEqual(
+            self.test_model.wv.most_similar_cosmul('the', 'and'),
+            self.test_model.wv.most_similar_cosmul(positive=['the'], negative=['and']))
 
     def test_lookup(self):
         # In vocab, sanity check
@@ -390,7 +394,7 @@ class TestFastTextModel(unittest.TestCase):
         self.assertFalse('nights' in self.test_model.wv.key_to_index)
         self.assertTrue('nights' in self.test_model.wv)
 
-    @unittest.skipIf(PYEMD_EXT is False, "pyemd not installed")
+    @unittest.skipIf(POT_EXT is False, "POT not installed")
     def test_wm_distance(self):
         doc = ['night', 'payment']
         oov_doc = ['nights', 'forests', 'payments']
@@ -623,7 +627,7 @@ class TestFastTextModel(unittest.TestCase):
         model.train(terro, total_examples=len(terro), epochs=model.epochs)
         self.assertFalse(np.allclose(model.wv.vectors_ngrams, orig0_all))
         sim = model.wv.n_similarity(['war'], ['terrorism'])
-        self.assertLess(0., sim)
+        assert abs(sim) > 0.6
 
     def test_sg_hs_online(self):
         model = FT_gensim(sg=1, window=2, hs=1, negative=0, min_count=3, epochs=1, seed=42, workers=1, bucket=BUCKET)
@@ -1661,7 +1665,7 @@ def _save_test_model(out_base_fname, model_params):
     subprocess.check_call(cmd)
 
 
-@unittest.skipIf(not FT_HOME, "FT_HOME env variable not set, skipping test")
+@unittest.skipIf(not FT_CMD, "fasttext not in FT_HOME or PATH, skipping test")
 class SaveFacebookByteIdentityTest(unittest.TestCase):
     """
     This class containts tests that check the following scenario:
@@ -1708,7 +1712,7 @@ def _read_wordvectors_using_fasttext(fasttext_fname, words):
     return np.array([line_to_array(line) for line in out.splitlines()], dtype=np.float32)
 
 
-@unittest.skipIf(not os.environ.get("FT_HOME", None), "FT_HOME env variable not set, skipping test")
+@unittest.skipIf(not FT_CMD, "fasttext not in FT_HOME or PATH, skipping test")
 class SaveFacebookFormatReadingTest(unittest.TestCase):
     """
     This class containts tests that check the following scenario:
@@ -1776,6 +1780,28 @@ class UnpackTest(unittest.TestCase):
         self.assertTrue(np.all(np.array([0, 1, 2]) == n[0]))
         self.assertTrue(np.all(np.array([3, 4, 5]) == n[1]))
         self.assertTrue(np.all(np.array([6, 7, 8]) == n[2]))
+
+
+class FastTextKeyedVectorsTest(unittest.TestCase):
+    def test_add_vector(self):
+        wv = FastTextKeyedVectors(vector_size=2, min_n=3, max_n=6, bucket=2000000)
+        wv.add_vector("test_key", np.array([0, 0]))
+
+        self.assertEqual(wv.key_to_index["test_key"], 0)
+        self.assertEqual(wv.index_to_key[0], "test_key")
+        self.assertTrue(np.all(wv.vectors[0] == np.array([0, 0])))
+
+    def test_add_vectors(self):
+        wv = FastTextKeyedVectors(vector_size=2, min_n=3, max_n=6, bucket=2000000)
+        wv.add_vectors(["test_key1", "test_key2"], np.array([[0, 0], [1, 1]]))
+
+        self.assertEqual(wv.key_to_index["test_key1"], 0)
+        self.assertEqual(wv.index_to_key[0], "test_key1")
+        self.assertTrue(np.all(wv.vectors[0] == np.array([0, 0])))
+
+        self.assertEqual(wv.key_to_index["test_key2"], 1)
+        self.assertEqual(wv.index_to_key[1], "test_key2")
+        self.assertTrue(np.all(wv.vectors[1] == np.array([1, 1])))
 
 
 if __name__ == '__main__':

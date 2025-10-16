@@ -3,7 +3,7 @@
 #
 # Author: Gensim Contributors
 # Copyright (C) 2018 RaRe Technologies s.r.o.
-# Licensed under the GNU LGPL v2.1 - http://www.gnu.org/licenses/lgpl.html
+# Licensed under the GNU LGPL v2.1 - https://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html
 
 """
 Introduction
@@ -68,7 +68,7 @@ The trained word vectors are stored in a :class:`~gensim.models.keyedvectors.Key
     >>> sims = model.wv.most_similar('computer', topn=10)  # get other similar words
 
 The reason for separating the trained vectors into `KeyedVectors` is that if you don't
-need the full model state any more (don't need to continue training), its state can discarded,
+need the full model state any more (don't need to continue training), its state can be discarded,
 keeping just the vectors and their keys proper.
 
 This results in a much smaller and faster object that can be mmapped for lightning
@@ -200,6 +200,9 @@ from gensim.utils import keep_vocab_item, call_on_class_only, deprecated
 from gensim.models.keyedvectors import KeyedVectors, pseudorandom_weak_vector
 from gensim import utils, matutils
 
+# This import is required by pickle to load models stored by Gensim < 4.0, such as Gensim 3.8.3.
+from gensim.models.keyedvectors import Vocab  # noqa
+
 from smart_open.compression import get_supported_extensions
 
 logger = logging.getLogger(__name__)
@@ -283,11 +286,11 @@ class Word2Vec(utils.SaveLoad):
             Training algorithm: 1 for skip-gram; otherwise CBOW.
         hs : {0, 1}, optional
             If 1, hierarchical softmax will be used for model training.
-            If 0, and `negative` is non-zero, negative sampling will be used.
+            If 0, hierarchical softmax will not be used for model training.
         negative : int, optional
             If > 0, negative sampling will be used, the int for negative specifies how many "noise words"
             should be drawn (usually between 5-20).
-            If set to 0, no negative sampling is used.
+            If 0, negative sampling will not be used.
         ns_exponent : float, optional
             The exponent used to shape the negative sampling distribution. A value of 1.0 samples exactly in proportion
             to the frequencies, 0.0 samples all words equally, while a negative value samples low-frequency words more
@@ -446,7 +449,7 @@ class Word2Vec(utils.SaveLoad):
     def build_vocab(
             self, corpus_iterable=None, corpus_file=None, update=False, progress_per=10000,
             keep_raw_vocab=False, trim_rule=None, **kwargs,
-    ):
+        ):
         """Build vocabulary from a sequence of sentences (can be a once-only generator stream).
 
         Parameters
@@ -661,7 +664,7 @@ class Word2Vec(utils.SaveLoad):
                 "prepare_vocab",
                 msg=(
                     f"effective_min_count={self.effective_min_count} retains {len(retain_words)} unique "
-                    f"words ({retain_unique_pct}%% of original {original_unique_total}, drops {drop_unique})"
+                    f"words ({retain_unique_pct:.2f}% of original {original_unique_total}, drops {drop_unique})"
                 ),
             )
 
@@ -671,7 +674,7 @@ class Word2Vec(utils.SaveLoad):
                 "prepare_vocab",
                 msg=(
                     f"effective_min_count={self.effective_min_count} leaves {retain_total} word corpus "
-                    f"({retain_pct}%% of original {original_total}, drops {drop_total})"
+                    f"({retain_pct:.2f}% of original {original_total}, drops {drop_total})"
                 ),
             )
         else:
@@ -706,9 +709,9 @@ class Word2Vec(utils.SaveLoad):
             self.add_lifecycle_event(
                 "prepare_vocab",
                 msg=(
-                    f"added {len(new_words)} new unique words ({new_unique_pct}%% of original "
+                    f"added {len(new_words)} new unique words ({new_unique_pct:.2f}% of original "
                     f"{original_unique_total}) and increased the count of {len(pre_exist_words)} "
-                    f"pre-existing words ({pre_exist_unique_pct}%% of original {original_unique_total})"
+                    f"pre-existing words ({pre_exist_unique_pct:.2f}% of original {original_unique_total})"
                 ),
             )
             retain_words = new_words + pre_exist_words
@@ -1286,7 +1289,7 @@ class Word2Vec(utils.SaveLoad):
             report = progress_queue.get()  # blocks if workers too slow
             if report is None:  # a thread reporting that it finished
                 unfinished_worker_count -= 1
-                logger.info("worker thread finished; awaiting finish of %i more threads", unfinished_worker_count)
+                logger.debug("worker thread finished; awaiting finish of %i more threads", unfinished_worker_count)
                 continue
             examples, trained_words, raw_words = report
             job_tally += 1
@@ -1533,6 +1536,17 @@ class Word2Vec(utils.SaveLoad):
             If the combination of input parameters is inconsistent.
 
         """
+        if (not self.hs) and (not self.negative):
+            raise ValueError(
+                "You must set either 'hs' or 'negative' to be positive for proper training. "
+                "When both 'hs=0' and 'negative=0', there will be no training."
+            )
+        if self.hs and self.negative:
+            logger.warning(
+                "Both hierarchical softmax and negative sampling are activated. "
+                "This is probably a mistake. You should set either 'hs=0' "
+                "or 'negative=0' to disable one of them. "
+            )
         if self.alpha > self.min_alpha_yet_reached:
             logger.warning("Effective 'alpha' higher than previous training cycles")
 
@@ -1593,14 +1607,14 @@ class Word2Vec(utils.SaveLoad):
             # examples-based progress %
             logger.info(
                 "EPOCH %i - PROGRESS: at %.2f%% examples, %.0f words/s, in_qsize %i, out_qsize %i",
-                cur_epoch + 1, 100.0 * example_count / total_examples, trained_word_count / elapsed,
+                cur_epoch, 100.0 * example_count / total_examples, trained_word_count / elapsed,
                 -1 if job_queue is None else utils.qsize(job_queue), utils.qsize(progress_queue)
             )
         else:
             # words-based progress %
             logger.info(
                 "EPOCH %i - PROGRESS: at %.2f%% words, %.0f words/s, in_qsize %i, out_qsize %i",
-                cur_epoch + 1, 100.0 * raw_word_count / total_words, trained_word_count / elapsed,
+                cur_epoch, 100.0 * raw_word_count / total_words, trained_word_count / elapsed,
                 -1 if job_queue is None else utils.qsize(job_queue), utils.qsize(progress_queue)
             )
 
@@ -1636,8 +1650,8 @@ class Word2Vec(utils.SaveLoad):
 
         """
         logger.info(
-            "EPOCH - %i : training on %i raw words (%i effective words) took %.1fs, %.0f effective words/s",
-            cur_epoch + 1, raw_word_count, trained_word_count, elapsed, trained_word_count / elapsed,
+            "EPOCH %i: training on %i raw words (%i effective words) took %.1fs, %.0f effective words/s",
+            cur_epoch, raw_word_count, trained_word_count, elapsed, trained_word_count / elapsed,
         )
 
         # don't warn if training in file-based mode, because it's expected behavior
@@ -1647,12 +1661,12 @@ class Word2Vec(utils.SaveLoad):
         # check that the input corpus hasn't changed during iteration
         if total_examples and total_examples != example_count:
             logger.warning(
-                "EPOCH - %i : supplied example count (%i) did not equal expected count (%i)", cur_epoch + 1,
+                "EPOCH %i: supplied example count (%i) did not equal expected count (%i)", cur_epoch,
                 example_count, total_examples
             )
         if total_words and total_words != raw_word_count:
             logger.warning(
-                "EPOCH - %i : supplied raw word count (%i) did not equal expected count (%i)", cur_epoch + 1,
+                "EPOCH %i: supplied raw word count (%i) did not equal expected count (%i)", cur_epoch,
                 raw_word_count, total_words
             )
 
@@ -1983,9 +1997,6 @@ class Word2Vec(utils.SaveLoad):
             for a in ('hashfxn', 'layer1_size', 'seed', 'syn1neg', 'syn1'):
                 if hasattr(self.trainables, a):
                     setattr(self, a, getattr(self.trainables, a))
-            if hasattr(self, 'syn1'):
-                self.syn1 = self.syn1
-                del self.syn1
             del self.trainables
         if not hasattr(self, 'shrink_windows'):
             self.shrink_windows = True
@@ -2030,7 +2041,7 @@ class BrownCorpus:
 
 class Text8Corpus:
     def __init__(self, fname, max_sentence_length=MAX_WORDS_IN_BATCH):
-        """Iterate over sentences from the "text8" corpus, unzipped from http://mattmahoney.net/dc/text8.zip."""
+        """Iterate over sentences from the "text8" corpus, unzipped from https://mattmahoney.net/dc/text8.zip."""
         self.fname = fname
         self.max_sentence_length = max_sentence_length
 

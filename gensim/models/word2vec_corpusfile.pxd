@@ -1,4 +1,5 @@
 # distutils: language = c++
+# cython: language_level=3
 # cython: boundscheck=False
 # cython: wraparound=False
 # cython: cdivision=True
@@ -9,7 +10,7 @@
 # also used from fasttext_corpusfile and doc2vec_corpusfile
 #
 # Copyright (C) 2018 Dmitry Persiyanov <dmitry.persiyanov@gmail.com>
-# Licensed under the GNU LGPL v2.1 - http://www.gnu.org/licenses/lgpl.html
+# Licensed under the GNU LGPL v2.1 - https://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html
 
 from libcpp.string cimport string
 from libcpp.vector cimport vector
@@ -25,7 +26,7 @@ cdef extern from "fast_line_sentence.h":
     cdef cppclass FastLineSentence:
         FastLineSentence() except +
         FastLineSentence(string&, size_t) except +
-        vector[string] ReadSentence() nogil except +
+        vector[string] ReadSentence() except + nogil
         bool_t IsEof() nogil
         void Reset() nogil
 
@@ -37,11 +38,11 @@ cdef class CythonLineSentence:
     cdef vector[vector[string]] buf_data
 
     cpdef bool_t is_eof(self) nogil
-    cpdef vector[string] read_sentence(self) nogil except *
-    cpdef vector[vector[string]] _read_chunked_sentence(self) nogil except *
+    cpdef vector[string] read_sentence(self) except * nogil
+    cpdef vector[vector[string]] _read_chunked_sentence(self) except * nogil
     cpdef vector[vector[string]] _chunk_sentence(self, vector[string] sent) nogil
-    cpdef void reset(self) nogil
-    cpdef vector[vector[string]] next_batch(self) nogil except *
+    cpdef void reset(self) noexcept nogil
+    cpdef vector[vector[string]] next_batch(self) except * nogil
 
 
 cdef struct VocabItem:
@@ -61,9 +62,9 @@ ctypedef unordered_map[string, VocabItem] cvocab_t
 cdef class CythonVocab:
     cdef cvocab_t vocab
     cdef subword_arrays
-    cdef cvocab_t* get_vocab_ptr(self) nogil except *
+    cdef cvocab_t* get_vocab_ptr(self) except * nogil
 
 
-cdef REAL_t get_alpha(REAL_t alpha, REAL_t end_alpha, int cur_epoch, int num_epochs) nogil
+cdef REAL_t get_alpha(REAL_t alpha, REAL_t end_alpha, int cur_epoch, int num_epochs) noexcept nogil
 cdef REAL_t get_next_alpha(REAL_t start_alpha, REAL_t end_alpha, long long total_examples, long long total_words,
                            long long expected_examples, long long expected_words, int cur_epoch, int num_epochs) nogil

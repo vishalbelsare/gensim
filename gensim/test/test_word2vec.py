@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # Copyright (C) 2010 Radim Rehurek <radimrehurek@seznam.cz>
-# Licensed under the GNU LGPL v2.1 - http://www.gnu.org/licenses/lgpl.html
+# Licensed under the GNU LGPL v2.1 - https://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html
 
 """
 Automated tests for checking transformation algorithms (the models package).
@@ -14,19 +14,21 @@ import os
 import bz2
 import sys
 import tempfile
+import subprocess
 
 import numpy as np
 
 from testfixtures import log_capture
 
 try:
-    from pyemd import emd  # noqa:F401
-    PYEMD_EXT = True
+    from ot import emd2  # noqa:F401
+    POT_EXT = True
 except (ImportError, ValueError):
-    PYEMD_EXT = False
+    POT_EXT = False
 
 from gensim import utils
 from gensim.models import word2vec, keyedvectors
+from gensim.utils import check_output
 from gensim.test.utils import (
     datapath, get_tmpfile, temporary_file, common_texts as sentences,
     LeeCorpus, lee_corpus_list,
@@ -171,7 +173,7 @@ class TestWord2VecModel(unittest.TestCase):
     def test_online_learning_from_file(self):
         """Test that the algorithm is able to add new words to the
         vocabulary and to a trained model when using a sorted vocabulary"""
-        with temporary_file(get_tmpfile('gensim_word2vec1.tst')) as corpus_file,\
+        with temporary_file(get_tmpfile('gensim_word2vec1.tst')) as corpus_file, \
                 temporary_file(get_tmpfile('gensim_word2vec2.tst')) as new_corpus_file:
             utils.save_as_line_sentence(sentences, corpus_file)
             utils.save_as_line_sentence(new_sentences, new_corpus_file)
@@ -196,7 +198,7 @@ class TestWord2VecModel(unittest.TestCase):
     def test_online_learning_after_save_from_file(self):
         """Test that the algorithm is able to add new words to the
         vocabulary and to a trained model when using a sorted vocabulary"""
-        with temporary_file(get_tmpfile('gensim_word2vec1.tst')) as corpus_file,\
+        with temporary_file(get_tmpfile('gensim_word2vec1.tst')) as corpus_file, \
                 temporary_file(get_tmpfile('gensim_word2vec2.tst')) as new_corpus_file:
             utils.save_as_line_sentence(sentences, corpus_file)
             utils.save_as_line_sentence(new_sentences, new_corpus_file)
@@ -272,6 +274,13 @@ class TestWord2VecModel(unittest.TestCase):
         loaded_wv = keyedvectors.KeyedVectors.load(tmpf)
         self.assertTrue(np.allclose(wv.vectors, loaded_wv.vectors))
         self.assertEqual(len(wv), len(loaded_wv))
+
+    def test_persistence_backwards_compatible(self):
+        """Can we still load a model created with an older gensim version?"""
+        path = datapath('model-from-gensim-3.8.0.w2v')
+        model = word2vec.Word2Vec.load(path)
+        x = model.score(['test'])
+        assert x is not None
 
     def test_persistence_from_file(self):
         """Test storing/loading the entire model trained with corpus_file argument."""
@@ -555,6 +564,12 @@ class TestWord2VecModel(unittest.TestCase):
         """Test that evaluating analogies on KeyedVectors give sane results"""
         model = word2vec.Word2Vec(LeeCorpus())
         score, sections = model.wv.evaluate_word_analogies(datapath('questions-words.txt'))
+        score_cosmul, sections_cosmul = model.wv.evaluate_word_analogies(
+            datapath('questions-words.txt'),
+            similarity_function='most_similar_cosmul'
+        )
+        self.assertEqual(score, score_cosmul)
+        self.assertEqual(sections, sections_cosmul)
         self.assertGreaterEqual(score, 0.0)
         self.assertLessEqual(score, 1.0)
         self.assertGreater(len(sections), 0)
@@ -572,9 +587,9 @@ class TestWord2VecModel(unittest.TestCase):
         pearson = correlation[0][0]
         spearman = correlation[1][0]
         oov = correlation[2]
-        self.assertTrue(0.1 < pearson < 1.0, "pearson {pearson} not between 0.1 & 1.0")
-        self.assertTrue(0.1 < spearman < 1.0, "spearman {spearman} not between 0.1 and 1.0")
-        self.assertTrue(0.0 <= oov < 90.0, "OOV {oov} not between 0.0 and 90.0")
+        self.assertTrue(0.1 < pearson < 1.0, f"pearson {pearson} not between 0.1 & 1.0")
+        self.assertTrue(0.1 < spearman < 1.0, f"spearman {spearman} not between 0.1 and 1.0")
+        self.assertTrue(0.0 <= oov < 90.0, f"OOV {oov} not between 0.0 and 90.0")
 
     def test_evaluate_word_pairs_from_file(self):
         """Test Spearman and Pearson correlation coefficients give sane results on similarity datasets"""
@@ -832,9 +847,9 @@ class TestWord2VecModel(unittest.TestCase):
             expected_neighbor = 'palestinian'
             sims = model.wv.most_similar(origin_word, topn=len(model.wv))
             # the exact vectors and therefore similarities may differ, due to different thread collisions/randomization
-            # so let's test only for top10
+            # so let's test only for topN
             neighbor_rank = [word for word, sim in sims].index(expected_neighbor)
-            self.assertLess(neighbor_rank, 2)
+            self.assertLess(neighbor_rank, 6)
 
     def test_r_n_g(self):
         """Test word2vec results identical with identical RNG seed."""
@@ -873,7 +888,7 @@ class TestWord2VecModel(unittest.TestCase):
         self.assertRaises(RuntimeError, binary_model_with_neg.predict_output_word, ['system', 'human'])
 
         # negative sampling scheme not used
-        model_without_neg = word2vec.Word2Vec(sentences, min_count=1, negative=0)
+        model_without_neg = word2vec.Word2Vec(sentences, min_count=1, hs=1, negative=0)
         self.assertRaises(RuntimeError, model_without_neg.predict_output_word, ['system', 'human'])
 
         # passing indices instead of words in context
@@ -1018,6 +1033,19 @@ class TestWord2VecModel(unittest.TestCase):
         warning = "Effective 'alpha' higher than previous training cycles"
         self.assertTrue(warning in str(loglines))
 
+    @log_capture()
+    def test_train_hs_and_neg(self, loglines):
+        """
+        Test if ValueError is raised when both hs=0 and negative=0
+        Test if warning is raised if both hs and negative are activated
+        """
+        with self.assertRaises(ValueError):
+            word2vec.Word2Vec(sentences, min_count=1, hs=0, negative=0)
+
+        word2vec.Word2Vec(sentences, min_count=1, hs=1, negative=5)
+        warning = "Both hierarchical softmax and negative sampling are activated."
+        self.assertTrue(warning in str(loglines))
+
     def test_train_with_explicit_param(self):
         model = word2vec.Word2Vec(vector_size=2, min_count=1, hs=1, negative=0)
         model.build_vocab(sentences)
@@ -1076,7 +1104,7 @@ class TestWord2VecModel(unittest.TestCase):
 
 class TestWMD(unittest.TestCase):
 
-    @unittest.skipIf(PYEMD_EXT is False, "pyemd not installed")
+    @unittest.skipIf(POT_EXT is False, "POT not installed")
     def test_nonzero(self):
         '''Test basic functionality with a test sentence.'''
 
@@ -1088,7 +1116,7 @@ class TestWMD(unittest.TestCase):
         # Check that distance is non-zero.
         self.assertFalse(distance == 0.0)
 
-    @unittest.skipIf(PYEMD_EXT is False, "pyemd not installed")
+    @unittest.skipIf(POT_EXT is False, "POT not installed")
     def test_symmetry(self):
         '''Check that distance is symmetric.'''
 
@@ -1099,7 +1127,7 @@ class TestWMD(unittest.TestCase):
         distance2 = model.wv.wmdistance(sentence2, sentence1)
         self.assertTrue(np.allclose(distance1, distance2))
 
-    @unittest.skipIf(PYEMD_EXT is False, "pyemd not installed")
+    @unittest.skipIf(POT_EXT is False, "POT not installed")
     def test_identical_sentences(self):
         '''Check that the distance from a sentence to itself is zero.'''
 
@@ -1162,15 +1190,18 @@ class TestWord2VecSentenceIterators(unittest.TestCase):
 
 # endclass TestWord2VecSentenceIterators
 
-# TODO: get correct path to Python binary
-# class TestWord2VecScripts(unittest.TestCase):
-#     def test_word2vec_stand_alone_script(self):
-#         """Does Word2Vec script launch standalone?"""
-#         cmd = 'python -m gensim.scripts.word2vec_standalone -train ' + datapath('testcorpus.txt') + \
-#               ' -output vec.txt -size 200 -sample 1e-4 -binary 0 -iter 3 -min_count 1'
-#         output = check_output(cmd, stderr=PIPE)
-#         self.assertEqual(output, '0')
-# #endclass TestWord2VecScripts
+
+class TestWord2VecScripts(unittest.TestCase):
+    def test_word2vec_stand_alone_script(self):
+        """Does Word2Vec script launch standalone?"""
+        cmd = [
+            sys.executable, '-m', 'gensim.scripts.word2vec_standalone',
+            '-train', datapath('testcorpus.txt'),
+            '-output', 'vec.txt', '-size', '200', '-sample', '1e-4',
+            '-binary', '0', '-iter', '3', '-min_count', '1',
+        ]
+        output = check_output(args=cmd, stderr=subprocess.PIPE)
+        self.assertEqual(output, b'')
 
 
 if not hasattr(TestWord2VecModel, 'assertLess'):

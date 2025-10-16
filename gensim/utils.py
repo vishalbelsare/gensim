@@ -2,11 +2,10 @@
 # -*- coding: utf-8 -*-
 #
 # Copyright (C) 2010 Radim Rehurek <radimrehurek@seznam.cz>
-# Licensed under the GNU LGPL v2.1 - http://www.gnu.org/licenses/lgpl.html
+# Licensed under the GNU LGPL v2.1 - https://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html
 
 """Various general utility functions."""
 
-from __future__ import with_statement
 from contextlib import contextmanager
 import collections.abc
 import logging
@@ -30,6 +29,7 @@ import heapq
 from copy import deepcopy
 from datetime import datetime
 import platform
+import types
 
 import numpy as np
 import scipy.sparse
@@ -1159,7 +1159,7 @@ def safe_unichr(intval):
 def decode_htmlentities(text):
     """Decode all HTML entities in text that are encoded as hex, decimal or named entities.
     Adapted from `python-twitter-ircbot/html_decode.py
-    <http://github.com/sku/python-twitter-ircbot/blob/321d94e0e40d0acc92f5bf57d126b57369da70de/html_decode.py>`_.
+    <https://github.com/sku/python-twitter-ircbot/blob/321d94e0e40d0acc92f5bf57d126b57369da70de/html_decode.py>`_.
 
     Parameters
     ----------
@@ -1862,7 +1862,7 @@ def keep_vocab_item(word, count, min_count, trim_rule=None):
 def check_output(stdout=subprocess.PIPE, *popenargs, **kwargs):
     r"""Run OS command with the given arguments and return its output as a byte string.
 
-    Backported from Python 2.7 with a few minor modifications. Widely used for :mod:`gensim.models.wrappers`.
+    Backported from Python 2.7 with a few minor modifications. Used in word2vec/glove2word2vec tests.
     Behaves very similar to https://docs.python.org/2/library/subprocess.html#subprocess.check_output.
 
     Examples
@@ -2084,3 +2084,19 @@ def effective_n_jobs(n_jobs):
     elif n_jobs < 0:
         n_jobs = max(multiprocessing.cpu_count() + 1 + n_jobs, 1)
     return n_jobs
+
+
+def is_empty(corpus):
+    """Is the corpus (an iterable or a scipy.sparse array) empty?"""
+    if scipy.sparse.issparse(corpus):
+        return corpus.shape[1] == 0  # by convention, scipy.sparse documents are columns
+    if isinstance(corpus, types.GeneratorType):
+        return False  # don't try to guess emptiness of generators, may lose elements irretrievably
+    try:
+        # list, numpy array etc
+        first_doc = next(iter(corpus))  # noqa: F841 (ignore unused variable)
+        return False  # first document exists => not empty
+    except StopIteration:
+        return True
+    except Exception:
+        return False

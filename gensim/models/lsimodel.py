@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # Copyright (C) 2010 Radim Rehurek <radimrehurek@seznam.cz>
-# Licensed under the GNU LGPL v2.1 - http://www.gnu.org/licenses/lgpl.html
+# Licensed under the GNU LGPL v2.1 - https://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html
 
 
 """Module for `Latent Semantic Analysis (aka Latent Semantic Indexing)
@@ -64,12 +64,16 @@ import sys
 import time
 
 import numpy as np
+try:
+    from scipy.sparse import csc_matvecs
+except ImportError:
+    # the function is no longer public in scipy 1.14+
+    from scipy.sparse._sparsetools import csc_matvecs
 import scipy.linalg
-import scipy.sparse
-from scipy.sparse import sparsetools
 
 from gensim import interfaces, matutils, utils
 from gensim.models import basemodel
+from gensim.utils import is_empty
 
 logger = logging.getLogger(__name__)
 
@@ -178,7 +182,7 @@ class Projection(utils.SaveLoad):
         docs : {iterable of list of (int, float), scipy.sparse.csc}
             Corpus in BoW format or as sparse matrix.
         use_svdlibc : bool, optional
-            If True - will use `sparsesvd library <https://pypi.python.org/pypi/sparsesvd/>`_,
+            If True - will use `sparsesvd library <https://pypi.org/project/sparsesvd/>`_,
             otherwise - our own version will be used.
         power_iters: int, optional
             Number of power iteration steps to be used. Tune to improve accuracy.
@@ -489,7 +493,8 @@ class LsiModel(interfaces.TransformationABC, basemodel.BaseTopicModel):
             chunksize = self.chunksize
         if decay is None:
             decay = self.decay
-
+        if is_empty(corpus):
+            logger.warning('LsiModel.add_documents() called but no documents provided, is this intended?')
         if not scipy.sparse.issparse(corpus):
             if not self.onepass:
                 # we are allowed multiple passes over the input => use a faster, randomized two-pass algo
@@ -590,7 +595,8 @@ class LsiModel(interfaces.TransformationABC, basemodel.BaseTopicModel):
             Latent representation of corpus in BoW format if `bow` is corpus.
 
         """
-        assert self.projection.u is not None, "decomposition not initialized yet"
+        if self.projection.u is None:
+            raise ValueError('No training data provided - LSI model not initialized yet')
 
         # if the input vector is in fact a corpus, return a transformed corpus as a result
         is_corpus, bow = utils.is_corpus(bow)
@@ -888,7 +894,7 @@ def print_debug(id2token, u, s, topics, num_words=10, num_neg=None):
 def stochastic_svd(
         corpus, rank, num_terms, chunksize=20000, extra_dims=None,
         power_iters=0, dtype=np.float64, eps=1e-6, random_seed=None,
-):
+    ):
     """Run truncated Singular Value Decomposition (SVD) on a sparse input.
 
     Parameters
@@ -955,12 +961,13 @@ def stochastic_svd(
 
     if scipy.sparse.issparse(corpus):
         m, n = corpus.shape
-        assert num_terms == m, "mismatch in number of features: %i in sparse matrix vs. %i parameter" % (m, num_terms)
+        assert num_terms == m, f"mismatch in number of features: {m} in sparse matrix vs. {num_terms} parameter"
         o = random_state.normal(0.0, 1.0, (n, samples)).astype(y.dtype)  # draw a random gaussian matrix
-        sparsetools.csc_matvecs(
+        csc_matvecs(
             m, n, samples, corpus.indptr, corpus.indices,
             corpus.data, o.ravel(), y.ravel(),
         )  # y = corpus * o
+
         del o
 
         # unlike np, scipy.sparse `astype()` copies everything, even if there is no change to dtype!
@@ -991,7 +998,7 @@ def stochastic_svd(
             num_docs += n
             logger.debug("multiplying chunk * gauss")
             o = random_state.normal(0.0, 1.0, (n, samples), ).astype(dtype)  # draw a random gaussian matrix
-            sparsetools.csc_matvecs(
+            csc_matvecs(
                 m, n, samples, chunk.indptr, chunk.indices,  # y = y + chunk * o
                 chunk.data, o.ravel(), y.ravel(),
             )

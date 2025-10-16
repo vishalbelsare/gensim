@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # Copyright (C) 2010 Radim Rehurek <radimrehurek@seznam.cz>
-# Licensed under the GNU LGPL v2.1 - http://www.gnu.org/licenses/lgpl.html
+# Licensed under the GNU LGPL v2.1 - https://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html
 
 """
 Automated tests for checking transformation algorithms (the models package).
@@ -50,6 +50,11 @@ class TestCoherenceModel(unittest.TestCase):
             ['not a token', 'not an id', 'tests using', "this list"],
             ['should raise', 'an error', 'to pass', 'correctly']
         ]
+        # list of topics with unseen words in the dictionary
+        self.topics5 = [
+            ['aaaaa', 'bbbbb', 'ccccc', 'eeeee'],
+            ['ddddd', 'fffff', 'ggggh', 'hhhhh']
+        ]
         self.topicIds1 = []
         for topic in self.topics1:
             self.topicIds1.append([self.dictionary.token2id[token] for token in topic])
@@ -70,8 +75,14 @@ class TestCoherenceModel(unittest.TestCase):
         cm2 = CoherenceModel(topics=self.topics2, **kwargs)
         cm3 = CoherenceModel(topics=self.topics3, **kwargs)
         cm4 = CoherenceModel(topics=self.topicIds1, **kwargs)
+
+        # check if the same topic always returns the same coherence value
+        cm5 = CoherenceModel(topics=[self.topics1[0]], **kwargs)
+
         self.assertRaises(ValueError, lambda: CoherenceModel(topics=self.topics4, **kwargs))
+        self.assertRaises(ValueError, lambda: CoherenceModel(topics=self.topics5, **kwargs))
         self.assertEqual(cm1.get_coherence(), cm4.get_coherence())
+        self.assertEqual(cm1.get_coherence_per_topic()[0], cm5.get_coherence())
         self.assertIsInstance(cm3.get_coherence(), np.double)
         self.assertGreater(cm1.get_coherence(), cm2.get_coherence())
 
@@ -293,6 +304,12 @@ class TestCoherenceModel(unittest.TestCase):
         self.assertAlmostEqual(np.mean(coherence_topics1), coherence1, 4)
         self.assertAlmostEqual(np.mean(coherence_topics2), coherence2, 4)
         self.assertAlmostEqual(coherence1, coherence2, places=4)
+
+    def testEmptyList(self):
+        """Test if CoherenceModel works with document without tokens"""
+        texts = self.texts + [[]]
+        cm = CoherenceModel(model=self.ldamodel, texts=texts, coherence="c_v", processes=1)
+        cm.get_coherence()
 
 
 if __name__ == '__main__':

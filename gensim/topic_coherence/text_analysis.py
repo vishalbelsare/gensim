@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # Copyright (C) 2013 Radim Rehurek <radimrehurek@seznam.cz>
-# Licensed under the GNU LGPL v2.1 - http://www.gnu.org/licenses/lgpl.html
+# Licensed under the GNU LGPL v2.1 - https://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html
 
 """This module contains classes for analyzing the texts of a corpus to accumulate
 statistical information about word occurrences."""
@@ -293,25 +293,19 @@ class WindowedTextsAnalyzer(UsesDictionary):
             relevant_texts, window_size, ignore_below_size=False, include_doc_num=True)
 
         for doc_num, virtual_document in windows:
-            self.analyze_text(virtual_document, doc_num)
+            if len(virtual_document) > 0:
+                self.analyze_text(virtual_document, doc_num)
             self.num_docs += 1
         return self
 
     def _iter_texts(self, texts):
         dtype = np.uint16 if np.iinfo(np.uint16).max >= self._vocab_size else np.uint32
         for text in texts:
-            if self.text_is_relevant(text):
-                yield np.fromiter((
-                    self.id2contiguous[self.token2id[w]] if w in self.relevant_words
-                    else self._none_token
-                    for w in text), dtype=dtype, count=len(text))
-
-    def text_is_relevant(self, text):
-        """Check if the text has any relevant words."""
-        for word in text:
-            if word in self.relevant_words:
-                return True
-        return False
+            ids = (
+                self.id2contiguous[self.token2id[w]] if w in self.relevant_words else self._none_token
+                for w in text
+            )
+            yield np.fromiter(ids, dtype=dtype, count=len(text))
 
 
 class InvertedIndexAccumulator(WindowedTextsAnalyzer, InvertedIndexBased):

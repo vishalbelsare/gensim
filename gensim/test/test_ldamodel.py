@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # Copyright (C) 2010 Radim Rehurek <radimrehurek@seznam.cz>
-# Licensed under the GNU LGPL v2.1 - http://www.gnu.org/licenses/lgpl.html
+# Licensed under the GNU LGPL v2.1 - https://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html
 
 """
 Automated tests for checking transformation algorithms (the models package).
@@ -33,7 +33,7 @@ corpus = [dictionary.doc2bow(text) for text in common_texts]
 def test_random_state():
     testcases = [np.random.seed(0), None, np.random.RandomState(0), 0]
     for testcase in testcases:
-        assert(isinstance(utils.get_random_state(testcase), np.random.RandomState))
+        assert isinstance(utils.get_random_state(testcase), np.random.RandomState)
 
 
 class TestLdaModel(unittest.TestCase, basetmtests.TestBaseTopicModel):

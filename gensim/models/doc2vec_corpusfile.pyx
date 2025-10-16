@@ -1,4 +1,5 @@
 #!/usr/bin/env cython
+# cython: language_level=3
 # cython: boundscheck=False
 # cython: wraparound=False
 # cython: cdivision=True
@@ -6,7 +7,7 @@
 # coding: utf-8
 #
 # Copyright (C) 2018 Dmitry Persiyanov <dmitry.persiyanov@gmail.com>
-# Licensed under the GNU LGPL v2.1 - http://www.gnu.org/licenses/lgpl.html
+# Licensed under the GNU LGPL v2.1 - https://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html
 
 """Optimized cython functions for file-based training :class:`~gensim.models.doc2vec.Doc2Vec` model."""
 
@@ -60,7 +61,7 @@ cdef void prepare_c_structures_for_batch(
         np.uint32_t *indexes, int *codelens, np.uint8_t **codes, np.uint32_t **points,
         np.uint32_t *reduced_windows, int *document_len, int train_words,
         int docvecs_count, int doc_tag, int shrink_windows,
-    ) nogil:
+    ) noexcept nogil:
     cdef VocabItem predict_word
     cdef string token
     cdef int i = 0

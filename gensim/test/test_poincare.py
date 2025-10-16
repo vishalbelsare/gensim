@@ -3,7 +3,7 @@
 #
 # Author: Jayant Jain <jayantjain1992@gmail.com>
 # Copyright (C) 2017 Radim Rehurek <me@radimrehurek.com>
-# Licensed under the GNU LGPL v2.1 - http://www.gnu.org/licenses/lgpl.html
+# Licensed under the GNU LGPL v2.1 - https://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html
 
 """
 Automated tests for checking the poincare module from the models package.
@@ -13,10 +13,7 @@ import logging
 import os
 import tempfile
 import unittest
-try:
-    from mock import Mock
-except ImportError:
-    from unittest.mock import Mock
+from unittest.mock import Mock
 
 import numpy as np
 try:
@@ -32,7 +29,7 @@ from gensim.test.utils import datapath
 logger = logging.getLogger(__name__)
 
 
-def testfile():
+def get_testfile():
     # temporary data will be stored to this file
     return os.path.join(tempfile.gettempdir(), 'gensim_word2vec.tst')
 
@@ -81,16 +78,16 @@ class TestPoincareModel(unittest.TestCase):
         """Tests whether the model is saved and loaded correctly."""
         model = PoincareModel(self.data, burn_in=0, negative=3)
         model.train(epochs=1)
-        model.save(testfile())
-        loaded = PoincareModel.load(testfile())
+        model.save(get_testfile())
+        loaded = PoincareModel.load(get_testfile())
         self.models_equal(model, loaded)
 
     def test_persistence_separate_file(self):
         """Tests whether the model is saved and loaded correctly when the arrays are stored separately."""
         model = PoincareModel(self.data, burn_in=0, negative=3)
         model.train(epochs=1)
-        model.save(testfile(), sep_limit=1)
-        loaded = PoincareModel.load(testfile())
+        model.save(get_testfile(), sep_limit=1)
+        loaded = PoincareModel.load(get_testfile())
         self.models_equal(model, loaded)
 
     def test_online_learning(self):
@@ -107,8 +104,8 @@ class TestPoincareModel(unittest.TestCase):
         """Tests whether the model can be trained correctly after loading from disk."""
         model = PoincareModel(self.data, burn_in=0, negative=3)
         model.train(epochs=1)
-        model.save(testfile())
-        loaded = PoincareModel.load(testfile())
+        model.save(get_testfile())
+        loaded = PoincareModel.load(get_testfile())
         model.train(epochs=1)
         loaded.train(epochs=1)
         self.models_equal(model, loaded)
@@ -241,7 +238,7 @@ class TestPoincareModel(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         try:
-            os.unlink(testfile())
+            os.unlink(get_testfile())
         except OSError:
             pass
 

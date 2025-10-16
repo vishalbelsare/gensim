@@ -1,5 +1,6 @@
 #!/usr/bin/env cython
 # distutils: language = c++
+# cython: language_level=3
 # cython: boundscheck=False
 # cython: wraparound=False
 # cython: cdivision=True
@@ -7,7 +8,7 @@
 # coding: utf-8
 #
 # Copyright (C) 2018 Dmitry Persiyanov <dmitry.persiyanov@gmail.com>
-# Licensed under the GNU LGPL v2.1 - http://www.gnu.org/licenses/lgpl.html
+# Licensed under the GNU LGPL v2.1 - https://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html
 
 """Optimized cython functions for file-based training :class:`~gensim.models.fasttext.FastText` model."""
 
@@ -47,7 +48,7 @@ cdef void prepare_c_structures_for_batch(
         int *effective_words, int *effective_sentences, unsigned long long *next_random, cvocab_t *vocab,
         int *sentence_idx, np.uint32_t *indexes, int *codelens, np.uint8_t **codes, np.uint32_t **points,
         np.uint32_t *reduced_windows, int *subwords_idx_len, np.uint32_t **subwords_idx, int shrink_windows,
-    ) nogil:
+    ) noexcept nogil:
     cdef VocabItem word
     cdef string token
     cdef vector[string] sent

@@ -1,4 +1,5 @@
 #!/usr/bin/env cython
+# cython: language_level=3
 # cython: boundscheck=False
 # cython: wraparound=False
 # cython: cdivision=True
@@ -13,7 +14,7 @@
 import numpy as np
 cimport numpy as np
 
-from word2vec_inner cimport REAL_t
+from gensim.models.word2vec_inner cimport REAL_t
 
 
 DEF MAX_SENTENCE_LEN = 10000
@@ -134,16 +135,16 @@ cdef void init_ft_config(FastTextConfig *c, model, alpha, _work, _neu1)
 cdef object populate_ft_config(FastTextConfig *c, vocab, buckets_word, sentences)
 
 
-cdef void fasttext_fast_sentence_sg_neg(FastTextConfig *c, int i, int j) nogil
+cdef void fasttext_fast_sentence_sg_neg(FastTextConfig *c, int i, int j) noexcept nogil
 
 
-cdef void fasttext_fast_sentence_sg_hs(FastTextConfig *c, int i, int j) nogil
+cdef void fasttext_fast_sentence_sg_hs(FastTextConfig *c, int i, int j) noexcept nogil
 
 
-cdef void fasttext_fast_sentence_cbow_neg(FastTextConfig *c, int i, int j, int k) nogil
+cdef void fasttext_fast_sentence_cbow_neg(FastTextConfig *c, int i, int j, int k) noexcept nogil
 
 
-cdef void fasttext_fast_sentence_cbow_hs(FastTextConfig *c, int i, int j, int k) nogil
+cdef void fasttext_fast_sentence_cbow_hs(FastTextConfig *c, int i, int j, int k) noexcept nogil
 
 
-cdef void fasttext_train_any(FastTextConfig *c, int num_sentences) nogil
+cdef void fasttext_train_any(FastTextConfig *c, int num_sentences) noexcept nogil

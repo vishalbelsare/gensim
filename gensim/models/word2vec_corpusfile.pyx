@@ -1,5 +1,6 @@
 #!/usr/bin/env cython
 # distutils: language = c++
+# cython: language_level=3
 # cython: boundscheck=False
 # cython: wraparound=False
 # cython: cdivision=True
@@ -7,7 +8,7 @@
 # coding: utf-8
 #
 # Copyright (C) 2018 Dmitry Persiyanov <dmitry.persiyanov@gmail.com>
-# Licensed under the GNU LGPL v2.1 - http://www.gnu.org/licenses/lgpl.html
+# Licensed under the GNU LGPL v2.1 - https://www.gnu.org/licenses/old-licenses/lgpl-2.1.en.html
 
 """Optimized cython functions for file-based training :class:`~gensim.models.word2vec.Word2Vec` model."""
 
@@ -61,7 +62,7 @@ cdef class CythonVocab:
 
             self.vocab[token] = word
 
-    cdef cvocab_t* get_vocab_ptr(self) nogil except *:
+    cdef cvocab_t* get_vocab_ptr(self) except * nogil:
         return &self.vocab
 
 
@@ -94,10 +95,10 @@ cdef class CythonLineSentence:
     cpdef bool_t is_eof(self) nogil:
         return self._thisptr.IsEof()
 
-    cpdef vector[string] read_sentence(self) nogil except *:
+    cpdef vector[string] read_sentence(self) except * nogil:
         return self._thisptr.ReadSentence()
 
-    cpdef vector[vector[string]] _read_chunked_sentence(self) nogil except *:
+    cpdef vector[vector[string]] _read_chunked_sentence(self) except * nogil:
         cdef vector[string] sent = self.read_sentence()
         return self._chunk_sentence(sent)
 
@@ -119,7 +120,7 @@ cdef class CythonLineSentence:
 
         return res
 
-    cpdef void reset(self) nogil:
+    cpdef void reset(self) noexcept nogil:
         self._thisptr.Reset()
 
     def __iter__(self):
@@ -134,7 +135,7 @@ cdef class CythonLineSentence:
         # This function helps pickle to correctly serialize objects of this class.
         return rebuild_cython_line_sentence, (self.source, self.max_sentence_length)
 
-    cpdef vector[vector[string]] next_batch(self) nogil except *:
+    cpdef vector[vector[string]] next_batch(self) except * nogil:
         cdef:
             vector[vector[string]] job_batch
             vector[vector[string]] chunked_sentence
@@ -188,7 +189,7 @@ cdef void prepare_c_structures_for_batch(
         cvocab_t *vocab, int *sentence_idx, np.uint32_t *indexes, int *codelens,
         np.uint8_t **codes, np.uint32_t **points, np.uint32_t *reduced_windows,
         int shrink_windows,
-    ) nogil:
+    ) noexcept nogil:
     cdef VocabItem word
     cdef string token
     cdef vector[string] sent
@@ -234,7 +235,7 @@ cdef void prepare_c_structures_for_batch(
             reduced_windows[i] = 0
 
 
-cdef REAL_t get_alpha(REAL_t alpha, REAL_t end_alpha, int cur_epoch, int num_epochs) nogil:
+cdef REAL_t get_alpha(REAL_t alpha, REAL_t end_alpha, int cur_epoch, int num_epochs) noexcept nogil:
     return alpha - ((alpha - end_alpha) * (<REAL_t> cur_epoch) / num_epochs)
 
 
